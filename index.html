@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>誰是踩雷王？</title>
+<script src="assets/config.js"></script>
+<style>
+  :root{
+    --bg-1:#0e3b24; --bg-2:#145a34;
+    --panel:#f6fbf2; --ink:#14301f; --muted:#5b7a66;
+    --grass-a:#8bc34a; --grass-b:#7cb342; --grass-hover:#aed581;
+    --dirt-a:#f3ead3; --dirt-b:#e9dec1;
+    --accent:#ffd54f; --accent-ink:#4a3500; --accent-dark:#f9a825;
+    --danger:#e53935; --radius:18px;
+    --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:var(--font); color:var(--ink);
+    background:
+      radial-gradient(circle at 15% 10%, rgba(139,195,74,.25), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(255,213,79,.12), transparent 45%),
+      linear-gradient(160deg,var(--bg-2),var(--bg-1));
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    user-select:none; -webkit-user-select:none; overflow-x:hidden;
+  }
+  button{font-family:inherit;cursor:pointer}
+
+  /* ---------- Header ---------- */
+  header{width:100%;max-width:960px;display:flex;align-items:center;gap:16px;padding:22px 24px 8px}
+  #logo{width:64px;height:64px;border-radius:50%;cursor:pointer;flex:none;filter:drop-shadow(0 4px 10px rgba(0,0,0,.3))}
+  #logo-fallback{width:64px;height:64px;border-radius:50%;background:#1b5e20;display:none;place-items:center;font-size:34px;flex:none}
+  .titles h1{margin:0;color:#fff;font-size:clamp(28px,4vw,44px);letter-spacing:2px;text-shadow:0 3px 0 rgba(0,0,0,.25)}
+  .titles h1 span{color:var(--accent)}
+  .titles p{margin:4px 0 0;color:#c5e1a5;font-size:16px}
+
+  /* ---------- Main ---------- */
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 16px 24px;width:100%}
+  .card{background:var(--panel);border-radius:28px;padding:20px 22px 22px;box-shadow:0 18px 50px rgba(0,0,0,.35),0 0 0 6px rgba(255,255,255,.08)}
+  .statusbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .chip{display:flex;align-items:center;gap:8px;background:#e3f0d8;border-radius:999px;padding:8px 16px;font-weight:700;font-size:18px;min-width:118px;justify-content:center}
+  .chip small{font-weight:500;color:var(--muted);font-size:13px}
+  #face{width:56px;height:56px;border-radius:50%;border:none;background:var(--accent);font-size:30px;box-shadow:0 4px 0 var(--accent-dark);transition:transform .1s}
+  #face:active{transform:translateY(3px);box-shadow:0 1px 0 var(--accent-dark)}
+
+  #board{
+    --size:min(62px, calc((100vw - 90px)/var(--cols)), calc((100vh - 330px)/var(--rows)));
+    display:grid;grid-template-columns:repeat(var(--cols),var(--size));grid-auto-rows:var(--size);
+    border-radius:14px;overflow:hidden;box-shadow:inset 0 0 0 3px rgba(0,0,0,.06)
+  }
+  .cell{
+    border:none;padding:0;margin:0;display:grid;place-items:center;
+    font-size:calc(var(--size)*.5);font-weight:800;line-height:1;position:relative;
+    background:var(--grass-a);transition:background .12s;
+  }
+  .cell.alt{background:var(--grass-b)}
+  .cell:not(.open):hover{background:var(--grass-hover)}
+  .cell.open{background:var(--dirt-a);cursor:default;animation:pop .18s ease-out}
+  .cell.open.alt{background:var(--dirt-b)}
+  .cell.flag::after{content:"🚩";font-size:calc(var(--size)*.5);animation:plant .2s ease-out}
+  .cell.mine{background:#ffcdd2 !important}
+  .cell.mine::after{content:"💣";font-size:calc(var(--size)*.52)}
+  .cell.boom{background:var(--danger) !important;animation:shake .35s}
+  .cell.boom::after{content:"💥";font-size:calc(var(--size)*.62)}
+  .cell.wrong::after{content:"❌";font-size:calc(var(--size)*.42)}
+  .cell.won-mine::after{content:"🚩"}
+  .n1{color:#1e88e5}.n2{color:#2e7d32}.n3{color:#e53935}.n4{color:#5e35b1}
+  .n5{color:#ef6c00}.n6{color:#00897b}.n7{color:#37474f}.n8{color:#9e9e9e}
+  @keyframes pop{from{transform:scale(.85)}to{transform:scale(1)}}
+  @keyframes plant{from{transform:translateY(-6px) scale(1.3);opacity:0}to{transform:none;opacity:1}}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translate(-3px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}}
+
+  .controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .hint{color:var(--muted);font-size:14px}
+  .hint b{color:var(--ink)}
+  #flagMode{border:2px solid #c5dfb3;background:#fff;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:700;color:var(--ink)}
+  #flagMode.on{background:var(--danger);border-color:var(--danger);color:#fff}
+
+  /* ---------- Overlay / modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(6,30,17,.72);display:none;align-items:center;justify-content:center;z-index:20;padding:20px;backdrop-filter:blur(3px)}
+  .overlay.show{display:flex;animation:fade .2s}
+  .modal{background:var(--panel);border-radius:28px;padding:32px 36px;width:min(480px,100%);text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.45);animation:rise .3s cubic-bezier(.2,1.3,.5,1)}
+  .modal .big{font-size:64px;line-height:1}
+  .modal h2{margin:10px 0 6px;font-size:32px}
+  .modal p{margin:0 0 22px;color:var(--muted);font-size:17px;line-height:1.6}
+  .btn{border:none;border-radius:16px;padding:14px 30px;font-size:20px;font-weight:800;background:var(--accent);color:var(--accent-ink);box-shadow:0 5px 0 var(--accent-dark);transition:transform .08s}
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--accent-dark)}
+  .btn.green{background:#43a047;color:#fff;box-shadow:0 5px 0 #2e7d32}
+  .btn.ghost{background:#e3f0d8;color:var(--ink);box-shadow:0 4px 0 #c5dfb3;font-size:16px;padding:10px 18px}
+  .btn.red{background:var(--danger);color:#fff;box-shadow:0 4px 0 #b71c1c;font-size:16px;padding:10px 18px}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes rise{from{transform:translateY(30px) scale(.92);opacity:0}to{transform:none;opacity:1}}
+
+  /* start screen */
+  #startOverlay .modal{width:min(560px,100%)}
+  .rules{text-align:left;background:#e9f4e1;border-radius:16px;padding:14px 18px;margin:0 0 24px;font-size:16px;line-height:1.9}
+
+  /* draw */
+  .slot{height:110px;border-radius:20px;background:linear-gradient(#1b5e20,#2e7d32);color:#fff;display:grid;place-items:center;font-size:42px;font-weight:900;margin:8px 0 22px;box-shadow:inset 0 6px 16px rgba(0,0,0,.35);letter-spacing:4px;overflow:hidden}
+  .slot span{display:block}
+  .slot.spin span{animation:roll .09s linear}
+  @keyframes roll{from{transform:translateY(-40%);opacity:.3}to{transform:none;opacity:1}}
+  .prize-card{display:none}
+  .prize-card.show{display:block;animation:rise .4s cubic-bezier(.2,1.4,.5,1)}
+  .prize-img{width:200px;height:200px;object-fit:contain;margin:4px auto 6px;display:block;filter:drop-shadow(0 8px 16px rgba(0,0,0,.18))}
+  .prize-emoji{font-size:120px;line-height:1.3;display:none}
+  .prize-name{font-size:40px;font-weight:900;color:#1b5e20;margin:4px 0}
+  .prize-desc{color:var(--muted);font-size:18px;margin-bottom:22px}
+
+  /* staff panel */
+  #staffOverlay .modal{width:min(760px,100%);text-align:left;max-height:90vh;overflow:auto}
+  .staff-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .staff-head h2{margin:0;font-size:24px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .stat{background:#e9f4e1;border-radius:14px;padding:10px 14px}
+  .stat b{display:block;font-size:26px}
+  .stat span{color:var(--muted);font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:15px;margin-bottom:16px}
+  th,td{padding:8px 10px;border-bottom:1px solid #dbe9d0;text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:13px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .out{color:var(--danger);font-weight:700}
+  .log{background:#fff;border:1px solid #dbe9d0;border-radius:12px;max-height:200px;overflow:auto;padding:4px 12px;font-size:14px;margin-bottom:16px}
+  .log div{padding:5px 0;border-bottom:1px dashed #e3eedb;display:flex;justify-content:space-between}
+  .log div:last-child{border:none}
+  .staff-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  .pw input{font:inherit;font-size:24px;text-align:center;letter-spacing:8px;width:200px;padding:10px;border-radius:12px;border:2px solid #c5dfb3;margin-bottom:16px;outline:none}
+  .pw input:focus{border-color:#43a047}
+  .pw .err{color:var(--danger);font-size:14px;min-height:20px;margin:-8px 0 10px}
+
+  #cfgError{display:none;background:#ffebee;color:#b71c1c;padding:12px 18px;border-radius:12px;margin:12px;font-weight:700}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:30}
+</style>
+</head>
+<body>
+<div id="cfgError">找不到 assets/config.js 或設定檔有錯誤，目前使用預設值。請確認 assets 資料夾與 index.html 放在同一層。</div>
+
+<header>
+  <img id="logo" alt="Logo" title="">
+  <div id="logo-fallback">💣</div>
+  <div class="titles">
+    <h1 id="title">誰是踩雷王<span>？</span></h1>
+    <p id="subtitle"></p>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="statusbar">
+      <div class="chip" title="地雷數 − 已插旗數">💣 <span id="mineLeft">8</span></div>
+      <button id="face" title="重新開始">🙂</button>
+      <div class="chip" title="還沒翻開的安全格"><small>安全格</small> <span id="safeLeft">56</span></div>
+    </div>
+    <div id="board"></div>
+    <div class="controls">
+      <div class="hint"><b>左鍵</b> 翻開　<b>右鍵</b> 插旗　第一格保證安全</div>
+      <button id="flagMode" title="開啟後，左鍵改為插旗（快捷鍵 F）">🚩 插旗模式：關</button>
+    </div>
+  </div>
+</main>
+
+<!-- 開始畫面 -->
+<div class="overlay show" id="startOverlay">
+  <div class="modal">
+    <div class="big">💣👑</div>
+    <h2 id="startTitle">誰是踩雷王？</h2>
+    <div class="rules">
+      ① 點擊格子翻開，數字代表周圍 8 格內有幾顆地雷<br>
+      ② 覺得有地雷就按右鍵插旗做記號<br>
+      ③ <b>翻開所有安全格</b>就過關，可以抽獎一次！<br>
+      ④ 踩到地雷就出局，請換下一位挑戰者
+    </div>
+    <button class="btn" id="startBtn">開始挑戰！</button>
+  </div>
+</div>
+
+<!-- 失敗 -->
+<div class="overlay" id="loseOverlay">
+  <div class="modal">
+    <div class="big">💥</div>
+    <h2>踩到地雷了！</h2>
+    <p>差一點點就成為踩雷王了，<br>感謝你的挑戰！</p>
+    <button class="btn" data-next>下一位挑戰者</button>
+  </div>
+</div>
+
+<!-- 過關 -->
+<div class="overlay" id="winOverlay">
+  <div class="modal">
+    <div class="big">👑</div>
+    <h2>恭喜過關！</h2>
+    <p>你就是今天的踩雷王！<br>獲得一次抽獎機會</p>
+    <button class="btn green" id="toDrawBtn">🎁 開始抽獎</button>
+  </div>
+</div>
+
+<!-- 抽獎 -->
+<div class="overlay" id="drawOverlay">
+  <div class="modal">
+    <div id="drawStage">
+      <h2>抽獎中…</h2>
+      <div class="slot" id="slot"><span>？？？</span></div>
+    </div>
+    <div class="prize-card" id="prizeCard">
+      <h2>🎉 恭喜獲得 🎉</h2>
+      <img class="prize-img" id="prizeImg" alt="">
+      <div class="prize-emoji" id="prizeEmoji"></div>
+      <div class="prize-name" id="prizeName"></div>
+      <div class="prize-desc" id="prizeDesc"></div>
+      <p style="margin-bottom:18px">請將此畫面出示給工作人員領獎</p>
+      <button class="btn" data-next>下一位挑戰者</button>
+    </div>
+    <div id="noPrize" style="display:none">
+      <div class="big">📦</div>
+      <h2>獎品已全部送完</h2>
+      <p>請洽現場工作人員</p>
+      <button class="btn" data-next>下一位挑戰者</button>
+    </div>
+  </div>
+</div>
+
+<!-- 工作人員：密碼 -->
+<div class="overlay" id="pwOverlay">
+  <div class="modal pw">
+    <h2>工作人員專區</h2>
+    <p>請輸入密碼</p>
+    <input type="password" id="pwInput" inputmode="numeric" autocomplete="off"><br>
+    <div class="err" id="pwErr"></div>
+    <button class="btn ghost" id="pwCancel">取消</button>
+    <button class="btn green" id="pwOk" style="font-size:16px;padding:10px 22px">進入</button>
+  </div>
+</div>
+
+<!-- 工作人員：面板 -->
+<div class="overlay" id="staffOverlay">
+  <div class="modal">
+    <div class="staff-head">
+      <h2>📋 工作人員面板</h2>
+      <button class="btn ghost" id="staffClose">關閉</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="stPlayed">0</b><span>挑戰次數</span></div>
+      <div class="stat"><b id="stWins">0</b><span>過關（抽獎）次數</span></div>
+      <div class="stat"><b id="stRate">0%</b><span>過關率</span></div>
+    </div>
+    <table>
+      <thead><tr><th>獎品</th><th class="num">權重</th><th class="num">目前機率</th><th class="num">總數</th><th class="num">已送出</th><th class="num">剩餘</th></tr></thead>
+      <tbody id="stockBody"></tbody>
+    </table>
+    <h3 style="margin:0 0 8px;font-size:16px">中獎紀錄（最新在上）</h3>
+    <div class="log" id="logList"></div>
+    <div class="staff-actions">
+      <button class="btn ghost" id="resetStock">重置庫存</button>
+      <button class="btn red" id="resetAll">清除所有紀錄</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+
+<script>
+(() => {
+  "use strict";
+
+  /* ================= 設定 ================= */
+  const DEFAULTS = {
+    title:"誰是踩雷王？", subtitle:"翻開所有安全格就能抽獎，踩到地雷就出局！",
+    rows:8, cols:8, mines:8, staffPassword:"0000", sound:true, soundFiles:{},
+    logo:"assets/logo.svg",
+    prizes:[{id:"thanks",name:"參加獎",desc:"",emoji:"🍬",weight:1,stock:null}]
+  };
+  if (!window.GAME_CONFIG) document.getElementById("cfgError").style.display = "block";
+  const CFG = Object.assign({}, DEFAULTS, window.GAME_CONFIG || {});
+  CFG.rows = Math.max(4, Math.min(20, CFG.rows|0 || 8));
+  CFG.cols = Math.max(4, Math.min(20, CFG.cols|0 || 8));
+  CFG.mines = Math.max(1, Math.min(CFG.rows*CFG.cols - 10, CFG.mines|0 || 8));
+  const PRIZES = (CFG.prizes || []).map((p, i) => ({
+    id: String(p.id || p.name || ("prize" + i)),
+    name: p.name || ("獎品 " + (i+1)),
+    desc: p.desc || "",
+    image: p.image || "",
+    emoji: p.emoji || "🎁",
+    weight: Math.max(0, Number(p.weight) || 0),
+    stock: (p.stock === null || p.stock === undefined || p.stock === "") ? null : Math.max(0, p.stock|0)
+  }));
+
+  /* ================= 紀錄（存在這台電腦的瀏覽器） ================= */
+  const STORE_KEY = "minesweeper-lottery:" + CFG.title;
+  const fresh = () => ({ used:{}, log:[], stats:{played:0, wins:0, losses:0} });
+  let store = fresh();
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && s.used) store = Object.assign(fresh(), s); } catch(e) {}
+  const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch(e) {} };
+
+  const remaining = p => p.stock === null ? Infinity : Math.max(0, p.stock - (store.used[p.id] || 0));
+  const available = () => PRIZES.filter(p => p.weight > 0 && remaining(p) > 0);
+  const rand = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; };
+
+  function pickPrize(){
+    const pool = available();
+    const total = pool.reduce((s,p) => s + p.weight, 0);
+    if (!total) return null;
+    let r = rand() * total;
+    for (const p of pool) { r -= p.weight; if (r < 0) return p; }
+    return pool[pool.length-1];
+  }
+
+  /* ================= 文字 / Logo ================= */
+  const $ = id => document.getElementById(id);
+  const t = CFG.title;
+  $("title").innerHTML = /[？?]$/.test(t) ? escapeHtml(t.slice(0,-1)) + "<span>" + t.slice(-1) + "</span>" : escapeHtml(t);
+  $("startTitle").textContent = t;
+  document.title = t;
+  $("subtitle").textContent = CFG.subtitle;
+  const logo = $("logo");
+  logo.onerror = () => { logo.style.display = "none"; $("logo-fallback").style.display = "grid"; };
+  logo.src = CFG.logo || "";
+  if (!CFG.logo) logo.onerror();
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+  /* ================= 音效 ================= */
+  let actx = null;
+  const fileSounds = {};
+  for (const [k, src] of Object.entries(CFG.soundFiles || {})) if (src) { const a = new Audio(src); a.preload = "auto"; fileSounds[k] = a; }
+  function ctx(){ if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} } if (actx && actx.state === "suspended") actx.resume(); return actx; }
+  function tone(freq, dur, type="sine", vol=.15, delay=0, slide=0){
+    const c = ctx(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + delay;
+    o.type = type; o.frequency.setValueAtTime(freq, t0);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+    o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur + .02);
+  }
+  function noise(dur, vol=.5){
+    const c = ctx(); if (!c) return;
+    const b = c.createBuffer(1, c.sampleRate*dur, c.sampleRate), d = b.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 2);
+    const s = c.createBufferSource(), g = c.createGain(), f = c.createBiquadFilter();
+    f.type = "lowpass"; f.frequency.value = 900;
+    s.buffer = b; g.gain.value = vol; s.connect(f).connect(g).connect(c.destination); s.start();
+  }
+  const SYNTH = {
+    reveal: () => tone(620, .06, "triangle", .12),
+    flag:   () => tone(420, .08, "square", .06, 0, 700),
+    boom:   () => { noise(.9, .7); tone(120, .6, "sawtooth", .2, 0, 40); },
+    win:    () => [523,659,784,1047].forEach((f,i) => tone(f, .25, "triangle", .14, i*.11)),
+    tick:   () => tone(900, .03, "square", .05),
+    prize:  () => [784,988,1175,1568,1175,1568].forEach((f,i) => tone(f, .3, "triangle", .13, i*.1))
+  };
+  function play(name){
+    if (!CFG.sound) return;
+    const f = fileSounds[name];
+    if (f) { try { const a = f.cloneNode(); a.play().catch(()=>SYNTH[name]()); return; } catch(e) {} }
+    SYNTH[name] && SYNTH[name]();
+  }
+
+  /* ================= 遊戲 ================= */
+  const R = CFG.rows, C = CFG.cols, M = CFG.mines, N = R*C;
+  const boardEl = $("board");
+  boardEl.style.setProperty("--rows", R);
+  boardEl.style.setProperty("--cols", C);
+  let mine, adj, open, flag, state, opened, flags, flagMode = false;
+  const cells = [];
+
+  for (let i=0;i<N;i++){
+    const b = document.createElement("button");
+    b.className = "cell" + (((i/C|0) + i%C) % 2 ? " alt" : "");
+    b.dataset.i = i;
+    boardEl.appendChild(b); cells.push(b);
+  }
+
+  const neighbors = i => {
+    const r = i/C|0, c = i%C, out = [];
+    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++){
+      if (!dr && !dc) continue;
+      const rr = r+dr, cc = c+dc;
+      if (rr>=0 && rr<R && cc>=0 && cc<C) out.push(rr*C+cc);
+    }
+    return out;
+  };
+
+  function reset(){
+    mine = new Array(N).fill(false); adj = new Array(N).fill(0);
+    open = new Array(N).fill(false); flag = new Array(N).fill(false);
+    state = "ready"; opened = 0; flags = 0;
+    cells.forEach(el => { el.className = "cell" + (((+el.dataset.i/C|0) + el.dataset.i%C) % 2 ? " alt" : ""); el.textContent = ""; });
+    $("face").textContent = "🙂";
+    setFlagMode(false);
+    updateStatus();
+  }
+
+  function placeMines(safe){
+    const banned = new Set([safe, ...neighbors(safe)]);
+    const pool = [];
+    for (let i=0;i<N;i++) if (!banned.has(i)) pool.push(i);
+    for (let k=0;k<M;k++){ const j = k + Math.floor(rand()*(pool.length-k)); [pool[k],pool[j]] = [pool[j],pool[k]]; mine[pool[k]] = true; }
+    for (let i=0;i<N;i++) adj[i] = neighbors(i).filter(n => mine[n]).length;
+  }
+
+  function updateStatus(){
+    $("mineLeft").textContent = M - flags;
+    $("safeLeft").textContent = (N - M) - opened;
+  }
+
+  function reveal(i){
+    if (state === "won" || state === "lost" || open[i] || flag[i]) return;
+    if (state === "ready"){ placeMines(i); state = "playing"; store.stats.played++; save(); }
+    if (mine[i]) return lose(i);
+    const stack = [i];
+    while (stack.length){
+      const k = stack.pop();
+      if (open[k] || flag[k]) continue;
+      open[k] = true; opened++;
+      const el = cells[k];
+      el.classList.add("open");
+      if (adj[k]) { el.textContent = adj[k]; el.classList.add("n"+adj[k]); }
+      else neighbors(k).forEach(n => { if (!open[n] && !mine[n]) stack.push(n); });
+    }
+    play("reveal");
+    updateStatus();
+    if (opened === N - M) win();
+  }
+
+  function toggleFlag(i){
+    if (state === "won" || state === "lost" || open[i]) return;
+    flag[i] = !flag[i]; flags += flag[i] ? 1 : -1;
+    cells[i].classList.toggle("flag", flag[i]);
+    play("flag"); updateStatus();
+  }
+
+  function lose(i){
+    state = "lost"; store.stats.losses++; save();
+    $("face").textContent = "😵";
+    cells[i].classList.add("boom");
+    play("boom");
+    const others = [];
+    for (let k=0;k<N;k++){
+      if (mine[k] && k !== i && !flag[k]) others.push(k);
+      if (flag[k] && !mine[k]) { cells[k].classList.remove("flag"); cells[k].classList.add("wrong"); }
+    }
+    others.sort(() => rand() - .5).forEach((k, n) => setTimeout(() => cells[k].classList.add("mine"), 120 + n*90));
+    setTimeout(() => show("loseOverlay"), 1500 + others.length*90);
+  }
+
+  function win(){
+    state = "won"; store.stats.wins++; save();
+    $("face").textContent = "😎";
+    for (let k=0;k<N;k++) if (mine[k] && !flag[k]) { flag[k] = true; cells[k].classList.add("flag"); }
+    flags = M; updateStatus();
+    play("win"); confetti(1600);
+    setTimeout(() => show("winOverlay"), 900);
+  }
+
+  boardEl.addEventListener("click", e => {
+    const el = e.target.closest(".cell"); if (!el) return;
+    const i = +el.dataset.i;
+    flagMode ? toggleFlag(i) : reveal(i);
+  });
+  boardEl.addEventListener("contextmenu", e => {
+    e.preventDefault();
+    const el = e.target.closest(".cell"); if (el) toggleFlag(+el.dataset.i);
+  });
+  boardEl.addEventListener("mousedown", e => { if (e.button === 0 && state !== "won" && state !== "lost") $("face").textContent = "😮"; });
+  document.addEventListener("mouseup", () => { if (state === "ready" || state === "playing") $("face").textContent = "🙂"; });
+
+  function setFlagMode(on){
+    flagMode = on;
+    $("flagMode").classList.toggle("on", on);
+    $("flagMode").textContent = "🚩 插旗模式：" + (on ? "開" : "關");
+  }
+  $("flagMode").onclick = () => setFlagMode(!flagMode);
+  $("face").onclick = () => reset();
+
+  /* ================= 畫面切換 ================= */
+  function show(id){ document.querySelectorAll(".overlay").forEach(o => o.classList.toggle("show", o.id === id)); }
+  function hideAll(){ document.querySelectorAll(".overlay").forEach(o => o.classList.remove("show")); }
+  $("startBtn").onclick = () => { ctx(); hideAll(); };
+  document.querySelectorAll("[data-next]").forEach(b => b.onclick = () => { reset(); show("startOverlay"); });
+
+  /* ================= 抽獎 ================= */
+  $("toDrawBtn").onclick = startDraw;
+  let drawing = false;
+  function startDraw(){
+    if (drawing) return; drawing = true;
+    show("drawOverlay");
+    $("drawStage").style.display = "block"; $("prizeCard").classList.remove("show"); $("noPrize").style.display = "none";
+    const prize = pickPrize();
+    if (!prize){ $("drawStage").style.display = "none"; $("noPrize").style.display = "block"; drawing = false; return; }
+
+    // 先記錄，避免重新整理畫面重抽
+    store.used[prize.id] = (store.used[prize.id] || 0) + 1;
+    store.log.unshift({ t: Date.now(), id: prize.id, name: prize.name });
+    save();
+
+    const names = PRIZES.filter(p => p.weight > 0).map(p => p.name);
+    const slot = $("slot");
+    let delay = 45, idx = 0;
+    const step = () => {
+      const last = delay > 380;
+      const text = last ? prize.name : names[idx++ % names.length];
+      slot.innerHTML = "<span>" + escapeHtml(text) + "</span>";
+      slot.classList.remove("spin"); void slot.offsetWidth; slot.classList.add("spin");
+      play("tick");
+      if (last) return setTimeout(() => revealPrize(prize), 550);
+      delay *= 1.11; setTimeout(step, delay);
+    };
+    step();
+  }
+  function revealPrize(p){
+    $("drawStage").style.display = "none";
+    const img = $("prizeImg"), emo = $("prizeEmoji");
+    emo.textContent = p.emoji; emo.style.display = "none"; img.style.display = "block";
+    img.onerror = () => { img.style.display = "none"; emo.style.display = "block"; };
+    if (p.image) img.src = p.image; else img.onerror();
+    $("prizeName").textContent = p.name;
+    $("prizeDesc").textContent = p.desc;
+    $("prizeCard").classList.add("show");
+    play("prize"); confetti(3000);
+    drawing = false;
+  }
+
+  /* ================= 工作人員 ================= */
+  let logoClicks = 0, logoTimer;
+  const tapTarget = () => { logoClicks++; clearTimeout(logoTimer); logoTimer = setTimeout(() => logoClicks = 0, 1500); if (logoClicks >= 5) { logoClicks = 0; askPw(); } };
+  logo.addEventListener("click", tapTarget); $("logo-fallback").addEventListener("click", tapTarget);
+  document.addEventListener("keydown", e => {
+    if (e.ctrlKey && e.shiftKey && (e.key === "S" || e.key === "s")) { e.preventDefault(); askPw(); }
+    else if ((e.key === "f" || e.key === "F") && !e.ctrlKey && document.activeElement.tagName !== "INPUT") setFlagMode(!flagMode);
+    else if (e.key === "Enter" && $("pwOverlay").classList.contains("show")) checkPw();
+    else if (e.key === "Escape" && ($("pwOverlay").classList.contains("show") || $("staffOverlay").classList.contains("show"))) closeStaff();
+  });
+  let prevOverlay = null;
+  function askPw(){
+    prevOverlay = document.querySelector(".overlay.show:not(#pwOverlay):not(#staffOverlay)");
+    show("pwOverlay"); $("pwInput").value = ""; $("pwErr").textContent = ""; setTimeout(() => $("pwInput").focus(), 50);
+  }
+  function checkPw(){
+    if ($("pwInput").value === String(CFG.staffPassword)) { renderStaff(); show("staffOverlay"); }
+    else { $("pwErr").textContent = "密碼錯誤"; $("pwInput").select(); }
+  }
+  function closeStaff(){ hideAll(); if (prevOverlay) prevOverlay.classList.add("show"); }
+  $("pwOk").onclick = checkPw; $("pwCancel").onclick = closeStaff; $("staffClose").onclick = closeStaff;
+
+  function renderStaff(){
+    const s = store.stats;
+    $("stPlayed").textContent = s.played; $("stWins").textContent = s.wins;
+    $("stRate").textContent = s.played ? Math.round(s.wins / s.played * 100) + "%" : "—";
+    const pool = available(), total = pool.reduce((a,p) => a + p.weight, 0);
+    $("stockBody").innerHTML = PRIZES.map(p => {
+      const rem = remaining(p), inPool = pool.includes(p);
+      const prob = inPool && total ? (p.weight / total * 100).toFixed(1) + "%" : "0%";
+      return `<tr><td>${escapeHtml(p.emoji)} ${escapeHtml(p.name)}</td><td class="num">${p.weight}</td><td class="num">${prob}</td>
+        <td class="num">${p.stock === null ? "無限" : p.stock}</td><td class="num">${store.used[p.id] || 0}</td>
+        <td class="num ${rem === 0 ? "out" : ""}">${rem === Infinity ? "∞" : rem === 0 ? "已送完" : rem}</td></tr>`;
+    }).join("");
+    const fmt = ts => { const d = new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`; };
+    $("logList").innerHTML = store.log.length
+      ? store.log.map((l, i) => `<div><span>#${store.log.length - i}　${escapeHtml(l.name)}</span><span style="color:var(--muted)">${fmt(l.t)}</span></div>`).join("")
+      : `<div style="color:var(--muted)">目前還沒有中獎紀錄</div>`;
+  }
+  $("resetStock").onclick = () => { if (confirm("確定要重置庫存嗎？所有獎品會回到設定檔的數量（挑戰次數與紀錄會保留）。")) { store.used = {}; save(); renderStaff(); } };
+  $("resetAll").onclick = () => { if (confirm("確定要清除所有紀錄嗎？庫存、挑戰次數、中獎紀錄都會歸零，無法復原。")) { store = fresh(); save(); renderStaff(); } };
+
+  /* ================= 彩帶 ================= */
+  const cv = $("confetti"), cx = cv.getContext("2d");
+  let parts = [], confettiEnd = 0, raf = 0;
+  function confetti(ms){
+    cv.width = innerWidth; cv.height = innerHeight;
+    const colors = ["#ffd54f","#8bc34a","#43a047","#ffffff","#ff7043","#4fc3f7"];
+    for (let i=0;i<160;i++) parts.push({ x: Math.random()*cv.width, y: -20 - Math.random()*cv.height*.5, vx: (Math.random()-.5)*4, vy: 2 + Math.random()*4,
+      s: 6 + Math.random()*8, r: Math.random()*6, vr: (Math.random()-.5)*.3, c: colors[i % colors.length] });
+    confettiEnd = performance.now() + ms;
+    if (!raf) raf = requestAnimationFrame(tick);
+  }
+  function tick(now){
+    cx.clearRect(0,0,cv.width,cv.height);
+    parts.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .05; p.r += p.vr;
+      cx.save(); cx.translate(p.x,p.y); cx.rotate(p.r); cx.fillStyle = p.c; cx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); cx.restore(); });
+    parts = parts.filter(p => p.y < cv.height + 30);
+    if (now > confettiEnd && !parts.length) { raf = 0; cx.clearRect(0,0,cv.width,cv.height); return; }
+    raf = requestAnimationFrame(tick);
+  }
+
+  reset();
+})();
+</script>
+</body>
+</html>

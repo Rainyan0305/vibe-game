@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <rect width="240" height="240" rx="28" fill="#f6e3d1"/>
+  <rect x="50" y="104" width="140" height="96" rx="8" fill="#c77d3a"/>
+  <rect x="40" y="80" width="160" height="34" rx="8" fill="#c77d3a" opacity=".85"/>
+  <rect x="110" y="80" width="20" height="120" fill="#fff" opacity=".9"/>
+  <path d="M120 80 C 96 44, 64 60, 84 80 Z M120 80 C 144 44, 176 60, 156 80 Z" fill="none" stroke="#fff" stroke-width="10" stroke-linejoin="round"/>
+  <text x="120" y="228" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="700" fill="#c77d3a">三獎・佔位圖</text>
+</svg>
